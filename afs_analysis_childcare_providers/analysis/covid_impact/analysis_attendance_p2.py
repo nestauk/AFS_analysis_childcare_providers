@@ -220,6 +220,9 @@ wa_m["IDACI_lsoa_tiers_10"] = (
     )
     + 1
 )
+wa_m["Income_tiers_10"] = (
+    pd.qcut(wa_m["Income - Rank of average score"], 10, labels=False) + 1
+)
 
 # %%
 # Merge pop and wa datasets
@@ -307,8 +310,6 @@ ax = sns.heatmap(
     yticklabels=tier10.index.strftime("%Y-%m-%d"),
 )
 
-# %%
-
 # %% [markdown]
 # IDACI lsoa 10 tiers
 
@@ -346,5 +347,110 @@ ax = sns.heatmap(
     annot_kws={"style": "italic", "weight": "bold"},
     yticklabels=tier10.index.strftime("%Y-%m-%d"),
 )
+
+# %% [markdown]
+# Income 10 tiers
+
+# %%
+tier10 = (
+    wa_m.groupby([pd.Grouper(freq="M"), "Income_tiers_10"])[
+        [
+            "total_children_in_early_years_settings",
+            "EY_pop",
+        ]
+    ]
+    .sum()
+    .unstack("Income_tiers_10")
+)
+
+# %%
+tier10_list = list(tier10.columns.levels[1])
+for col in tier10_list:
+    tier10["Percent attending", col] = (
+        tier10["total_children_in_early_years_settings", col] / tier10["EY_pop", col]
+    ) * 100
+
+# %%
+tier10["Percent attending"].head(2)
+
+# %%
+fig, ax = plt.subplots(figsize=(10, 10))  # Sample figsize in inches
+
+ax = sns.heatmap(
+    tier10["Percent attending"],
+    cmap="YlGnBu_r",
+    vmin=1,
+    vmax=30,
+    annot=True,
+    annot_kws={"style": "italic", "weight": "bold"},
+    yticklabels=tier10.index.strftime("%Y-%m-%d"),
+)
+
+# %%
+wa_m.head(1)
+
+# %%
+wa_m["avg_daily_perc_att"] = (
+    wa_m["total_children_in_early_years_settings"] / wa_m["EY_pop"]
+) * 100
+
+# %%
+wa_m.reset_index(inplace=True)
+
+# %%
+wa_m.head(1)
+
+# %% [markdown]
+# Covid cases
+
+# %%
+new_cases = pd.read_csv(
+    "https://api.coronavirus.data.gov.uk/v2/data?areaType=utla&metric=newCasesBySpecimenDate&format=csv"
+)
+
+# %%
+new_cases["date"] = pd.to_datetime(new_cases["date"], format="%Y-%m-%d")
+new_cases.set_index("date", inplace=True, drop=True)
+new_cases_m = (
+    new_cases.groupby([pd.Grouper(freq="M"), "areaCode", "areaName"])
+    .mean()
+    .reset_index()
+)
+new_cases_m.rename(columns={"areaCode": "Code"}, inplace=True)  # Rename to match uk_pop
+wa_mc = wa_m[
+    [
+        "la_name",
+        "date",
+        "Code",
+        "Income_tiers_10",
+        "EY_pop",
+        "total_children_in_early_years_settings",
+        "avg_daily_perc_att",
+    ]
+].merge(
+    new_cases_m[["date", "Code", "newCasesBySpecimenDate"]],
+    how="left",
+    on=["date", "Code"],
+)
+
+# %%
+temp_drop = ["Cornwall", "Isles Of Scilly", "Hackney", "City of London"]
+wa_mc = wa_mc[~wa_mc.la_name.isin(temp_drop)]
+
+# %%
+wa_mc["avg_daily_perc_cases"] = (
+    wa_mc["newCasesBySpecimenDate"] / wa_mc["EY_pop"]
+) * 100
+
+# %%
+wa_mc.head(1)
+
+# %%
+fig = plt.figure(figsize=(8, 8))
+cases_att = plt.scatter(
+    wa_mc["avg_daily_perc_cases"], wa_mc["avg_daily_perc_att"], color="#ff0000"
+)
+plt.xlabel("Cases")
+plt.ylabel("Attendance")
 
 # %%
