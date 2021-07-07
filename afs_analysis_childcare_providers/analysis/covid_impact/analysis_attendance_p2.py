@@ -260,16 +260,24 @@ for col in tier10_list:
 tier10["Percent attending"].head(2)
 
 # %%
-fig, ax = plt.subplots(figsize=(10, 10))  # Sample figsize in inches
+heat_imd = tier10["Percent attending"].transpose()
+
+# %%
+fig, ax = plt.subplots(figsize=(14, 8))  # Sample figsize in inches
 
 ax = sns.heatmap(
-    tier10["Percent attending"],
+    heat_imd,
     cmap="YlGnBu_r",
     vmin=1,
     vmax=30,
     annot=True,
     annot_kws={"style": "italic", "weight": "bold"},
-    yticklabels=tier10.index.strftime("%Y-%m-%d"),
+    xticklabels=tier10.index.strftime("%Y-%m-%d"),
+)
+
+ax.figure.savefig(
+    f"{project_directory}/outputs/figures/covid_impact/analysis_attendance_p2/imd10-attend-heatmap.jpg",
+    bbox_inches="tight",
 )
 
 # %% [markdown]
@@ -298,16 +306,24 @@ for col in tier10_list:
 tier10["Percent attending"].head(2)
 
 # %%
-fig, ax = plt.subplots(figsize=(10, 10))  # Sample figsize in inches
+heat_idaci = tier10["Percent attending"].transpose()
+
+# %%
+fig, ax = plt.subplots(figsize=(14, 8))  # Sample figsize in inches
 
 ax = sns.heatmap(
-    tier10["Percent attending"],
+    heat_idaci,
     cmap="YlGnBu_r",
     vmin=1,
     vmax=30,
     annot=True,
     annot_kws={"style": "italic", "weight": "bold"},
-    yticklabels=tier10.index.strftime("%Y-%m-%d"),
+    xticklabels=tier10.index.strftime("%Y-%m-%d"),
+)
+
+ax.figure.savefig(
+    f"{project_directory}/outputs/figures/covid_impact/analysis_attendance_p2/idaci10-attend-heatmap.jpg",
+    bbox_inches="tight",
 )
 
 # %% [markdown]
@@ -336,16 +352,24 @@ for col in tier10_list:
 tier10["Percent attending"].head(2)
 
 # %%
-fig, ax = plt.subplots(figsize=(10, 10))  # Sample figsize in inches
+heat_idaci_lsoa = tier10["Percent attending"].transpose()
+
+# %%
+fig, ax = plt.subplots(figsize=(14, 8))  # Sample figsize in inches
 
 ax = sns.heatmap(
-    tier10["Percent attending"],
+    heat_idaci_lsoa,
     cmap="YlGnBu_r",
     vmin=1,
     vmax=30,
     annot=True,
     annot_kws={"style": "italic", "weight": "bold"},
-    yticklabels=tier10.index.strftime("%Y-%m-%d"),
+    xticklabels=tier10.index.strftime("%Y-%m-%d"),
+)
+
+ax.figure.savefig(
+    f"{project_directory}/outputs/figures/covid_impact/analysis_attendance_p2/idacilsoa10-attend-heatmap.jpg",
+    bbox_inches="tight",
 )
 
 # %% [markdown]
@@ -374,16 +398,26 @@ for col in tier10_list:
 tier10["Percent attending"].head(2)
 
 # %%
-fig, ax = plt.subplots(figsize=(10, 10))  # Sample figsize in inches
+heat_income = tier10["Percent attending"].transpose()
+
+# %%
+fig, ax = plt.subplots(figsize=(14, 8))  # Sample figsize in inches
 
 ax = sns.heatmap(
-    tier10["Percent attending"],
+    heat_income,
     cmap="YlGnBu_r",
     vmin=1,
     vmax=30,
     annot=True,
     annot_kws={"style": "italic", "weight": "bold"},
-    yticklabels=tier10.index.strftime("%Y-%m-%d"),
+    xticklabels=tier10.index.strftime("%Y-%m-%d"),
+)
+
+ax.invert_yaxis()
+
+ax.figure.savefig(
+    f"{project_directory}/outputs/figures/covid_impact/analysis_attendance_p2/income10-attend-heatmap.jpg",
+    bbox_inches="tight",
 )
 
 # %%
@@ -450,7 +484,7 @@ fig = plt.figure(figsize=(8, 8))
 cases_att = plt.scatter(
     wa_mc["avg_daily_perc_cases"], wa_mc["avg_daily_perc_att"], color="#ff0000"
 )
-plt.xlabel("Cases")
-plt.ylabel("Attendance")
+plt.xlabel("% avg daily cases")
+plt.ylabel("% EYS attendance")
 
 # %%

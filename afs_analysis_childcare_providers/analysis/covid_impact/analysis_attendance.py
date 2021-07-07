@@ -201,7 +201,7 @@ tier3 = (
 # %%
 tier3_list = list(tier3.columns.levels[1])
 for col in tier3_list:
-    tier3["Percent open", col] = (
+    tier3["Percent attending", col] = (
         tier3["total_children_in_early_years_settings", col] / tier3["EY_pop", col]
     ) * 100
 

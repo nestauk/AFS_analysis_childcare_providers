@@ -9,3 +9,7 @@ tqdm
 filelock
 typer
 sh
+odfpy
+Sklearn
+seaborn
+statsmodels
