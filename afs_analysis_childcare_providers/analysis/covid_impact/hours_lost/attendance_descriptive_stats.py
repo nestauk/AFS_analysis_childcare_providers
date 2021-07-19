@@ -112,6 +112,14 @@ income = pd.read_excel(
     sheet_name="Income",
 )
 
+# Covid cases
+new_cases = pd.read_csv(
+    "https://api.coronavirus.data.gov.uk/v2/data?areaType=utla&metric=newCasesBySpecimenDate&format=csv"
+)
+
+# Labour force - industry
+industry = pd.read_csv(f"{project_directory}/inputs/data/Nomis-industry-uacounty.csv")
+
 # %% [markdown]
 # ### Data cleaning
 
@@ -212,8 +220,6 @@ wa["la_name"].nunique()
 # %%
 weekly_count = wa.copy()
 weekly_count["count"] = 1
-
-# %%
 weekly_count = (
     weekly_count.groupby(["time_period", "time_identifier", "la_name"])["count"]
     .sum()
@@ -319,9 +325,6 @@ weeks_to_drop["week-year"] = (
     weeks_to_drop["time_period"].astype(str) + "_" + weeks_to_drop["time_identifier"]
 )
 weeks_to_drop = list(weeks_to_drop["week-year"])
-
-# %%
-weeks_to_drop
 
 # %%
 wa["week-year"] = wa["time_period"].astype(str) + "_" + wa["time_identifier"]
@@ -733,13 +736,13 @@ plt.show()
 # %% [markdown]
 # ### Notes meeting 14-07-21
 #
-# - Plot missing (in seperate) x2 graphs show and compare
-#     - Data collected over time - gaps
-# - Change scale: scale=alt.Scale(scheme=‘lighttealblue’,domain=[1, 100])
+# - Plot missing (in seperate) x2 graphs show and compare ✓
+#     - Data collected over time - gaps ✓
+# - Change scale: scale=alt.Scale(scheme=‘lighttealblue’,domain=[1, 100]) ✓
 # - Weekly plot covid rates map next to
 #     - https://geopandas.org/docs/user_guide/aggregation_with_dissolve.html
 #     - For borough aggregations
-# - reverse 'not attending'
+# - reverse 'not attending' ✓
 # - Save HTML files in bucket - nesta test
 # - Jobs:
 #     - Labour force survey
@@ -750,3 +753,129 @@ plt.show()
 # %% [markdown]
 # Dissolve:
 # https://stackoverflow.com/questions/40385782/make-a-union-of-polygons-in-geopandas-or-shapely-into-a-single-geometry
+
+# %% [markdown]
+# #### Covid rates
+
+# %%
+new_cases["date"] = pd.to_datetime(new_cases["date"], format="%Y-%m-%d")
+new_cases.set_index("date", inplace=True, drop=True)
+new_cases.rename(columns={"areaCode": "Code"}, inplace=True)  # Rename to match
+new_cases = new_cases.loc["2020-04-06":"2021-05-30"]  # Remove rows before 06/04/2020
+
+# %%
+# Get total weekly cases - Marks date as week end (Sunday)
+new_cases = (
+    new_cases.groupby([pd.Grouper(freq="W"), "Code", "areaName"]).sum().reset_index()
+)
+
+# %%
+merged_la = ["E09000012", "E06000052"]
+merged_la_cases = new_cases[new_cases.Code.isin(merged_la)]
+new_cases = new_cases[~new_cases.Code.isin(merged_la)]
+merged_la_casesCI = merged_la_cases.copy()
+merged_la_casesHC = merged_la_cases.copy()
+merged_la_casesCI["Code"].replace(
+    {"E06000052": "E06000053", "E09000012": "E09000001"}, inplace=True
+)
+merged_la_casesCI["newCasesBySpecimenDate"] = (
+    merged_la_casesCI["newCasesBySpecimenDate"] / 2
+)
+merged_la_casesHC["newCasesBySpecimenDate"] = (
+    merged_la_casesHC["newCasesBySpecimenDate"] / 2
+)
+new_cases = pd.concat([new_cases, merged_la_casesCI, merged_la_casesHC], axis=0)
+area = wa_w.drop_duplicates("la_name")[["la_name", "Code", "EY_pop"]]
+
+# %%
+new_cases_utla = new_cases.merge(area, how="left", on=["Code"])
+new_cases_utla = new_cases_utla.dropna(subset=["la_name"])
+
+# %%
+max_min = new_cases_utla.copy()
+max_min["New cases per 1000"] = max_min["newCasesBySpecimenDate"] / (
+    max_min["EY_pop"] / 1000
+)
+print(max_min["New cases per 1000"].min(), max_min["New cases per 1000"].max())
+
+# %%
+for date in new_cases_utla["date"].unique():
+    week_df = new_cases_utla[new_cases_utla["date"] == date]
+    week_df.set_index("date", inplace=True)
+    week_df_geo = week_df.merge(
+        county_ua_shapefile, left_on="Code", right_on="ctyua19cd", how="left"
+    )
+    week_df_geo = gpd.GeoDataFrame(week_df_geo, geometry="geometry")
+    week_df_geo = week_df_geo.dissolve(by="areaName", aggfunc="sum")
+    week_df_geo.reset_index(inplace=True)
+    week_df_geo["New cases per 1000"] = week_df_geo["newCasesBySpecimenDate"] / (
+        week_df_geo["EY_pop"] / 1000
+    )
+    week_df_map = create_la_map(
+        week_df_geo,
+        "New cases per 1000",
+        "areaName",
+        "plasma",
+        week_df_geo["New cases per 1000"].min(),
+        week_df_geo["New cases per 1000"].max(),
+    )
+    week_df_map.save(
+        f"{project_directory}/outputs/figures/covid_impact/maps/covid_rates/"
+        + str(date)[:10]
+        + "_map.html"
+    )
+
+# %%
+print(str(date)[:10])
+week_df_map
+
+# %% [markdown]
+# #### Jobs labour force survey
+
+# %% [markdown]
+# - Jobs by type and region overview
+# - Regions where attendance low - what is the job range
+# - Attendance distribution by job type
+
+# %%
+# Labour force - industry
+industry = pd.read_csv(
+    f"{project_directory}/inputs/data/Nomis-industry-uacounty.csv", skiprows=6
+)
+
+# %%
+industry = industry.iloc[1:]
+industry = industry.head(205).copy()
+industry.Area = industry.Area.apply(lambda x: x.split(":")[1])
+industry.rename(columns={"mnemonic": "Code"}, inplace=True)  # Rename to match
+
+# %%
+area = wa_w.drop_duplicates("la_name")[["la_name", "Code", "EY_pop"]]
+
+# %%
+industry_area = area.merge(industry, how="left", on=["Code"])
+
+# %%
+industry_area = industry_area.loc[
+    :, ~industry_area.columns.str.startswith("Conf")
+].copy()
+
+# %% [markdown]
+# - '!' Estimate and confidence interval not available since the group sample size is zero or disclosive (0-2)
+# - '*' Estimate and confidence interval unreliable since the group sample size is small (3-9)
+# - '~' Estimate is less than 500
+# - '-' These figures are missing.
+
+# %% [markdown]
+# Recode to zero for now?
+
+# %%
+for col in industry_area.loc[:, industry_area.columns.str.startswith("T13")].columns:
+    industry_area[col] = (
+        pd.to_numeric(industry_area[col], errors="coerce").fillna(0).astype("int")
+    )
+
+# %%
+industry_area.head(1)
+
+# %%
