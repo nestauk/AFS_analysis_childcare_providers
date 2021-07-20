@@ -30,16 +30,6 @@ import seaborn as sns
 # %%
 project_directory = afs_analysis_childcare_providers.PROJECT_DIR
 
-# %%
-county_ua_shapefile = gpd.read_file(
-    f"{project_directory}/inputs/data/shapefiles_utla/Counties_and_Unitary_Authorities_(December_2019)_Boundaries_UK_BGC.shp"
-).to_crs(epsg=4326)
-
-# %%
-region_shapefile = gpd.read_file(
-    f"{project_directory}/inputs/data/shapefiles_regions/Regions_(December_2019)_Boundaries_EN_BFC.shp"
-).to_crs(epsg=4326)
-
 
 # %% [markdown]
 # ### Functions
@@ -119,6 +109,15 @@ new_cases = pd.read_csv(
 
 # Labour force - industry
 industry = pd.read_csv(f"{project_directory}/inputs/data/Nomis-industry-uacounty.csv")
+
+# Shape files
+county_ua_shapefile = gpd.read_file(
+    f"{project_directory}/inputs/data/shapefiles_utla/Counties_and_Unitary_Authorities_(December_2019)_Boundaries_UK_BGC.shp"
+).to_crs(epsg=4326)
+
+region_shapefile = gpd.read_file(
+    f"{project_directory}/inputs/data/shapefiles_regions/Regions_(December_2019)_Boundaries_EN_BFC.shp"
+).to_crs(epsg=4326)
 
 # %% [markdown]
 # ### Data cleaning
