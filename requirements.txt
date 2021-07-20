@@ -9,3 +9,9 @@ tqdm
 filelock
 typer
 sh
+odfpy
+Sklearn
+seaborn
+statsmodels
+geopandas
+altair_saver
