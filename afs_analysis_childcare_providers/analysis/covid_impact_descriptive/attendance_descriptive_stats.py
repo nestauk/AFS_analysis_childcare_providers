@@ -35,7 +35,7 @@ project_directory = afs_analysis_childcare_providers.PROJECT_DIR
 # ### Functions
 
 # %%
-def create_la_map(df, col_val, col_la, scheme, min_scale, max_scale):
+def create_la_map(df, col_val, col_la, scheme, min_scale, max_scale, sort):
 
     # Creating configs for color,selection,hovering
     geo_select = alt.selection_single(fields=["reach_area"])
@@ -44,6 +44,7 @@ def create_la_map(df, col_val, col_la, scheme, min_scale, max_scale):
         alt.Color(
             col_val + ":Q",
             scale=alt.Scale(scheme=scheme, domain=[min_scale, max_scale]),
+            sort=sort,
         ),
         alt.value("lightgray"),
     )
@@ -54,7 +55,7 @@ def create_la_map(df, col_val, col_la, scheme, min_scale, max_scale):
         .encode(
             color=color,
             tooltip=[
-                alt.Tooltip(col_la + ":N", title="Education Authority Name"),
+                alt.Tooltip(col_la + ":N", title="Area Name"),
                 alt.Tooltip(
                     col_val + ":Q",
                     title=col_val,
@@ -233,9 +234,12 @@ weekly_total["sum_perc"] = (weekly_total["sum"] / 151) * 100
 weekly_total.head(1)
 
 # %%
-weeks_to_drop = weekly_total[weekly_total.sum_perc < 60].reset_index()[
+weeks_to_drop = weekly_total[weekly_total.sum_perc < 40].reset_index()[
     ["time_period", "time_identifier"]
 ]
+
+# %%
+weeks_to_drop
 
 # %%
 fig = plt.figure(figsize=(16, 6))
@@ -244,7 +248,10 @@ fig = plt.figure(figsize=(16, 6))
 weekly_total["sum_perc"].plot(kind="bar")
 
 # %%
-drop = weekly_total[weekly_total.sum_perc < 60].index
+drop = weekly_total[weekly_total.sum_perc < 40].index
+
+# %%
+drop
 
 # %%
 weekly_count_dropped = weekly_count.copy()
@@ -252,7 +259,7 @@ weekly_count_dropped = weekly_count_dropped.drop(drop, axis="index")
 
 # %%
 weekly_count_dropped = weekly_count_dropped.astype(bool).sum(axis=0).reset_index()
-weekly_count_dropped["missing"] = 53 - weekly_count_dropped[0]
+weekly_count_dropped["missing"] = 54 - weekly_count_dropped[0]
 weekly_count_dropped.set_index("la_name", drop=True, inplace=True)
 
 weekly_count = weekly_count.astype(bool).sum(axis=0).reset_index()
@@ -260,7 +267,7 @@ weekly_count["missing"] = 59 - weekly_count[0]
 weekly_count.set_index("la_name", drop=True, inplace=True)
 
 # %%
-weekly_count_dropped["perc_missing"] = (weekly_count_dropped["missing"] / 53) * 100
+weekly_count_dropped["perc_missing"] = (weekly_count_dropped["missing"] / 54) * 100
 weekly_count["perc_missing"] = (weekly_count["missing"] / 59) * 100
 
 # %%
@@ -272,6 +279,9 @@ missing_over_20_dropped = weekly_count_dropped[
     weekly_count_dropped["perc_missing"] > 20
 ]
 missing_over_20 = weekly_count[weekly_count["perc_missing"] > 20]
+
+# %%
+missing_over_20_dropped
 
 # %%
 fig = plt.figure(figsize=(16, 6))
@@ -304,7 +314,13 @@ weekly_count_dropped_geo = gpd.GeoDataFrame(
     weekly_count_dropped_geo, geometry="geometry"
 )
 weekly_count_dropped_map = create_la_map(
-    weekly_count_dropped_geo, "perc_missing", "la_name", "lighttealblue", 10, 90
+    weekly_count_dropped_geo,
+    "perc_missing",
+    "la_name",
+    "lighttealblue",
+    10,
+    90,
+    "ascending",
 )
 weekly_count_dropped_map.save(
     f"{project_directory}/outputs/figures/covid_impact/maps/percent_missing_weekly_map.html"
@@ -368,6 +384,7 @@ time_cat = [
     "2020_Week 33",
     "2020_Week 34",
     "2020_Week 35",
+    "2020_Week 36",
     "2020_Week 37",
     "2020_Week 38",
     "2020_Week 39",
@@ -461,7 +478,24 @@ wa_w["Percent of pop attending"] = (
 ) * 100
 
 # %%
-wa_w.head(1)
+wa_w.to_excel("test.xlsx", index=False)
+
+# %% [markdown]
+# #### Date range - week-year
+
+# %%
+date_range = wa[["date", "week-year"]].copy()
+date_range["date"] = pd.to_datetime(date_range["date"], format="%d/%m/%Y")
+date_range.sort_values(by="date", ascending=True, inplace=True)
+earliest = date_range.drop_duplicates(subset=["week-year"], keep="first").copy()
+latest = date_range.drop_duplicates(subset=["week-year"], keep="last").copy()
+earliest.rename({"date": "earliest_date"}, axis=1, inplace=True)
+latest.rename({"date": "latest_date"}, axis=1, inplace=True)
+date_range = earliest.merge(latest, how="left", on="week-year")
+date_range.set_index("week-year", inplace=True)
+
+# %%
+date_range.to_csv("week_year.csv")
 
 # %% [markdown]
 # ### Children not attending - weekly: maps
@@ -475,7 +509,7 @@ for week in wa_w["week-year"].unique():
     )
     week_df_geo = gpd.GeoDataFrame(week_df_geo, geometry="geometry")
     week_map = create_la_map(
-        week_df_geo, "Percent of pop attending", "la_name", "plasma", 0, 80
+        week_df_geo, "Percent of pop attending", "la_name", "plasma", 0, 60, "ascending"
     )
     week_map.save(
         f"{project_directory}/outputs/figures/covid_impact/maps/" + week + "_map.html"
@@ -558,6 +592,7 @@ utla_total_map = create_la_map(
     "plasma",
     utla_total["Children not attending"].min(),
     utla_total["Children not attending"].max(),
+    "ascending",
 )
 utla_total_map.save(
     f"{project_directory}/outputs/figures/covid_impact/maps/utla_total_map.html"
@@ -565,6 +600,13 @@ utla_total_map.save(
 
 # %%
 utla_total_map
+
+# %%
+total = utla_total["Children not attending"].sum()
+utla_total["Percent proportion"] = (utla_total["Children not attending"] / total) * 100
+
+# %%
+utla_total.sort_values(by="Percent proportion", ascending=False).head(3)
 
 # %% [markdown]
 # #### Region
@@ -578,9 +620,6 @@ region_total = (
 )
 
 # %%
-region_total.head(1)
-
-# %%
 region_total_geo = region_total.merge(
     region_shapefile, left_on="region_code", right_on="rgn19cd", how="left"
 )
@@ -592,6 +631,7 @@ region_total_map = create_la_map(
     "plasma",
     region_total["Children not attending"].min(),
     region_total["Children not attending"].max(),
+    "ascending",
 )
 region_total_map.save(
     f"{project_directory}/outputs/figures/covid_impact/maps/region_total_map.html"
@@ -599,6 +639,15 @@ region_total_map.save(
 
 # %%
 region_total_map
+
+# %%
+total = region_total["Children not attending"].sum()
+region_total["Percent proportion"] = (
+    region_total["Children not attending"] / total
+) * 100
+
+# %%
+region_total
 
 # %% [markdown]
 # ### Percent of children population not attending - 2020 vs 2021
@@ -634,7 +683,7 @@ df_2020_geo = df_2020.merge(
 )
 df_2020_geo = gpd.GeoDataFrame(df_2020_geo, geometry="geometry")
 map_2020 = create_la_map(
-    df_2020_geo, "Percent of pop attending", "la_name", "plasma", 0, 50
+    df_2020_geo, "Percent of pop attending", "la_name", "plasma", 0, 50, "ascending"
 )
 map_2020.save(f"{project_directory}/outputs/figures/covid_impact/maps/2020_la_map.html")
 
@@ -645,9 +694,15 @@ df_2021_geo = df_2021.merge(
 )
 df_2021_geo = gpd.GeoDataFrame(df_2021_geo, geometry="geometry")
 map_2021 = create_la_map(
-    df_2021_geo, "Percent of pop attending", "la_name", "plasma", 0, 50
+    df_2021_geo, "Percent of pop attending", "la_name", "plasma", 0, 50, "ascending"
 )
 map_2021.save(f"{project_directory}/outputs/figures/covid_impact/maps/2021_la_map.html")
+
+# %%
+df_2020_geo.sort_values(by="Percent of pop attending", ascending=True).head(3)
+
+# %%
+df_2021_geo.sort_values(by="Percent of pop attending", ascending=False).head(3)
 
 # %%
 map_2020
@@ -696,6 +751,9 @@ total = idaci_total["Children not attending"].sum()
 idaci_total["Percent proportion"] = (
     idaci_total["Children not attending"] / total
 ) * 100
+
+# %%
+idaci_total
 
 # %%
 idaci_total["Percent proportion"].plot(kind="bar")
@@ -819,6 +877,7 @@ for date in new_cases_utla["date"].unique():
         "plasma",
         week_df_geo["New cases per 1000"].min(),
         week_df_geo["New cases per 1000"].max(),
+        "descending",
     )
     week_df_map.save(
         f"{project_directory}/outputs/figures/covid_impact/maps/covid_rates/"
@@ -899,11 +958,26 @@ industry_area_geo = gpd.GeoDataFrame(industry_area_geo, geometry="geometry")
 # Public admin education & health
 map_industry_area = create_la_map(
     industry_area_geo,
+    "Banking finance & insurance_perc",
+    "Area",
+    "plasma",
+    10,
+    40,
+    "descending",
+)
+
+map_industry_area
+
+# %%
+# Public admin education & health
+map_industry_area = create_la_map(
+    industry_area_geo,
     "Public admin education & health_perc",
     "Area",
     "plasma",
     20,
     industry_area_geo["Public admin education & health_perc"].max(),
+    "descending",
 )
 
 map_industry_area
@@ -917,6 +991,7 @@ map_industry_area = create_la_map(
     "plasma",
     0,
     industry_area_geo["Transport & Communication_perc"].max(),
+    "descending",
 )
 map_industry_area
 
@@ -929,6 +1004,7 @@ map_industry_area = create_la_map(
     "plasma",
     0,
     industry_area_geo["Distribution, hotels & restaurants_perc"].max(),
+    "descending",
 )
 map_industry_area
 
@@ -940,6 +1016,9 @@ map_industry_area
 
 # %%
 # Drop Isles of Scilly and City of London (IofS has no data and CofL only has data for one industry)
+
+# %%
+industry_area.head(1)
 
 # %%
 area_drop = ["Isles of Scilly", "City of London"]
@@ -1045,3 +1124,110 @@ plt.show()
 
 # %%
 # Avg weekly change in attendance - looking at high prop of different industries (decile 10?)
+
+# %%
+wa_w.head(1)
+
+# %% [markdown]
+# #### New industry
+
+# %%
+industry_area.shape
+
+# %%
+wa_total = (
+    wa_w[
+        ["year", "total_children_in_early_years_settings", "EY_pop", "la_name", "Code"]
+    ]
+    .groupby(["la_name", "Code"])
+    .sum()
+    .reset_index()
+)
+
+# %%
+wa_total["Percent of pop attending"] = (
+    wa_total["total_children_in_early_years_settings"] / wa_total["EY_pop"]
+) * 100
+
+# %%
+wa_total["attend_10"] = pct_rank_qcut(wa_total["Percent of pop attending"], 10)
+
+# %%
+wa_total = wa_total[~wa_total["la_name"].isin(area_drop)]
+
+# %%
+industry_area = industry_area.merge(
+    wa_total[["Code", "attend_10"]],
+    how="left",
+    on="Code",
+)
+
+# %%
+industry_area = industry_area[
+    [
+        "Code",
+        "Area",
+        "attend_10",
+        "Agricuture & fishing",
+        "Energy & water",
+        "Manufacturing",
+        "Construction",
+        "Distribution, hotels & restaurants",
+        "Transport & Communication",
+        "Banking finance & insurance",
+        "Public admin education & health",
+        "Other services",
+    ]
+].copy()
+
+# %%
+industry_area.head(1)
+
+# %%
+ind_total = industry_area.groupby(["attend_10"]).sum()
+
+# %%
+ind_cols = [
+    "Agricuture & fishing",
+    "Energy & water",
+    "Manufacturing",
+    "Construction",
+    "Distribution, hotels & restaurants",
+    "Transport & Communication",
+    "Banking finance & insurance",
+    "Public admin education & health",
+    "Other services",
+]
+
+# %%
+ind_total["Total"] = ind_total[ind_cols].sum(axis=1)
+
+# %%
+for col in ind_cols:
+    ind_total[col + "Percent"] = (ind_total[col] / ind_total["Total"]) * 100
+
+# %%
+ind_total.head(2)
+
+# %%
+import matplotlib.pyplot as plt
+
+fig = plt.figure()
+ax = fig.add_axes([0, 0, 1, 1])
+perc = [
+    0.424713,
+    1.357630,
+    8.879047,
+    6.210977,
+    15.380427,
+    9.841005,
+    19.493248,
+    32.659358,
+    5.753594,
+]
+ax.bar(ind_cols, perc)
+plt.xticks(rotation=90)
+plt.title("Industry percentage in the areas with the lowest 10% attendance")
+plt.show()
+
+# %%
